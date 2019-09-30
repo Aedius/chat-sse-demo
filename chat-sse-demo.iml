@@ -7,7 +7,7 @@
       <sourceFolder url="file://$USER_HOME$/RustProject\examples" isTestSource="false" />
       <sourceFolder url="file://$USER_HOME$/RustProject\tests" isTestSource="true" />
       <sourceFolder url="file://$USER_HOME$/RustProject\benches" isTestSource="true" />
-      <excludeFolder url="file://$USER_HOME$/RustProject\target" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

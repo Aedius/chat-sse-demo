@@ -4,6 +4,13 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "chat_sse_demo"
+version = "0.1.0"
+dependencies = [
+ "chrono 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -40,13 +47,6 @@ dependencies = [
 name = "redox_syscall"
 version = "0.1.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "testsse"
-version = "0.1.0"
-dependencies = [
- "chrono 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "time"
