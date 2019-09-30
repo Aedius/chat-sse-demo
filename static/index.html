@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Hello!</title>
+    <script type="text/javascript">
+window.onload = function () {
+
+   var evtSource = new EventSource("http://localhost:8080/sse");
+
+   evtSource.addEventListener("ping", function(e) {
+
+  console.log(e.data)
+
+}, false);
+
+
+}();
+
+
+    </script>
+</head>
+<body>
+<h1>Hello!</h1>
+<p>Hi from Rust</p>
+</body>
+</html>

@@ -1,7 +1,8 @@
 [package]
-name = "RustProject"
+name = "testsse"
 version = "0.1.0"
-authors = ["Aedius <aedius.filmania@gmail.com>"]
+authors = ["VincentLemaireAgriconomie <vincent.lemaire@agriconomie.com>"]
 edition = "2018"
 
 [dependencies]
+chrono = "0.4.9"
