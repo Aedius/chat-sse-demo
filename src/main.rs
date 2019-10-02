@@ -4,12 +4,13 @@ use std::net::TcpListener;
 use std::fs;
 use std::thread;
 use std::time::Duration;
-use chat_sse_demo::ThreadPool;
 use chrono;
+
+mod worker;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
-    let pool = ThreadPool::new(100);
+    let pool = worker::ThreadPool::new(100);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
