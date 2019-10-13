@@ -3,25 +3,61 @@
 <head>
     <meta charset="utf-8">
     <title>Hello!</title>
-    <script type="text/javascript">
-window.onload = function () {
-
-   var evtSource = new EventSource("http://localhost:8080/sse");
-
-   evtSource.addEventListener("ping", function(e) {
-
-  console.log(e.data)
-
-}, false);
-
-
-}();
-
-
-    </script>
 </head>
 <body>
 <h1>Hello!</h1>
 <p>Hi from Rust</p>
+<fieldset>
+    <input id="js-mess-nickname" name="nickname" type="text"/>
+    <br/>
+    <textarea id="js-mess-content" name="message"></textarea>
+    <br/>
+    <input id="js-mess-submit" name="submit" type="submit"/>
+</fieldset>
+<p>Last ping : <span id="js-ping">never</span></p>
+
+<script type="text/javascript">
+window.onload = function () {
+    const pingElement = document.querySelector('#js-ping');
+    const submitElement = document.querySelector('#js-mess-submit');
+    const nicknameElement = document.querySelector('#js-mess-nickname');
+    const messageElement = document.querySelector('#js-mess-content');
+
+    var evtSource = new EventSource("http://localhost:8080/sse");
+
+    evtSource.addEventListener("ping", function(e) {
+        pingElement.innerHTML = e.data;
+    }, false);
+
+    evtSource.addEventListener("chat", function(e) {
+        pingElement.innerHTML = e.data;
+    }, false);
+
+    submitElement.onclick = function(){
+        if (nicknameElement.value == "" ){
+            nicknameElement.value = "anonymous"
+        }
+        if( messageElement.value != "" ){
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('PUT', 'mess');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    alert("ok")
+                }
+            };
+            xhr.send(JSON.stringify({
+                name: nicknameElement.value,
+                mess: messageElement.value
+            }));
+
+            messageElement.value = ""
+        }
+    }
+
+}();
+
+</script>
 </body>
 </html>

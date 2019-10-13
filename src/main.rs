@@ -1,11 +1,16 @@
-use std::io::prelude::*;
-use std::net::TcpStream;
-use std::net::TcpListener;
 use std::fs;
+use std::io::prelude::*;
+use std::net::TcpListener;
+use std::net::TcpStream;
+use std::str;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
+
 use chrono;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use serde::{Deserialize, Serialize};
+use serde_json::Result as SerdeResult;
+use snailquote::escape;
 
 #[derive(Clone)]
 pub struct Message {
@@ -21,6 +26,12 @@ pub enum MMess {
 pub struct Multiplex {
     receiver: Receiver<MMess>,
     sender_list: Vec<Sender<Message>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ChatMess {
+    name: String,
+    mess: String,
 }
 
 impl Multiplex {
@@ -43,7 +54,7 @@ impl Multiplex {
                         MMess::Message(mess) => {
                             let mut dead_channel = Vec::new();
                             println!("new message ! Sending to {} chanel", &self.sender_list.len());
-                            for (pos,sender) in self.sender_list.iter().enumerate() {
+                            for (pos, sender) in self.sender_list.iter().enumerate() {
                                 match sender.send(mess.clone()) {
                                     Ok(()) => {}
                                     Err(e) => {
@@ -52,7 +63,7 @@ impl Multiplex {
                                     }
                                 }
                             }
-                            for pos in dead_channel{
+                            for pos in dead_channel {
                                 self.sender_list.remove(pos);
                             }
                         }
@@ -92,7 +103,7 @@ fn main() {
 
                 let mess = Message {
                     name: "ping".to_string(),
-                    content: format!("{}{}", "This is a message at time ", date),
+                    content: format!("{}", date),
                 };
 
                 match sender_clock.send(MMess::Message(mess)) {
@@ -107,12 +118,11 @@ fn main() {
     );
 
     for stream in listener.incoming() {
-
         let sender = sender.clone();
         let (sender_stream, receiver_stream) = channel();
 
-        match sender.send(MMess::Sender(sender_stream)){
-            Ok(()) => {},
+        match sender.send(MMess::Sender(sender_stream)) {
+            Ok(()) => {}
             Err(err) => {
                 println!("{}", err)
             }
@@ -120,9 +130,10 @@ fn main() {
 
         match stream {
             Ok(str) => {
+                let sender = sender.clone();
                 thread::spawn(
                     || {
-                        handle_connection(str, receiver_stream);
+                        handle_connection(str, receiver_stream, sender);
                     }
                 );
             }
@@ -134,13 +145,14 @@ fn main() {
 }
 
 
-fn handle_connection(mut stream: TcpStream, receiver: Receiver<Message>) {
+fn handle_connection(mut stream: TcpStream, receiver: Receiver<Message>, sender: Sender<MMess>) {
     let mut buffer = [0; 512];
 
     stream.read(&mut buffer).unwrap();
 
     let get = b"GET / HTTP/1.1\r\n";
     let sse = b"GET /sse HTTP/1.1\r\n";
+    let mess = b"PUT /mess HTTP/1.1\r\n";
 
     if buffer.starts_with(sse) {
         let res = process_sse(&mut stream, receiver);
@@ -150,6 +162,55 @@ fn handle_connection(mut stream: TcpStream, receiver: Receiver<Message>) {
                 return;
             }
             Ok(_) => (),
+        }
+    } else if buffer.starts_with(mess) {
+        match str::from_utf8(&buffer) {
+            Ok(text) => {
+                let mut lines = text.lines();
+                let mut sep_found = false;
+                while !sep_found {
+                    match lines.next() {
+                        Some(row) => {
+                            if row == "" {
+                                sep_found = true
+                            }
+                        }
+                        None => {
+                            sep_found = true
+                        }
+                    }
+                }
+                match lines.next() {
+                    Some(row) => {
+                        match decode_chat_mess(row) {
+                            Ok(m) => {
+                                println!("chat message : {:?}", m);
+
+                                let new_mess = MMess::Message(Message {
+                                    name: "chat".to_string(),
+                                    content: escape(serde_json::to_string(&m).unwrap().as_str()).to_string(),
+                                });
+
+                                match sender.send(new_mess) {
+                                    Ok(()) => {}
+                                    Err(e) => {
+                                        println!("cannot send mess {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                println!("cannot json decode {:?} ; {}", row, e);
+                            }
+                        }
+                    }
+                    None => {
+                        println!("No content");
+                    }
+                }
+            }
+            Err(e) => {
+                println!("error decoding {:?}, {}", str::from_utf8(&buffer[..512]), e);
+            }
         }
     } else {
         let (status_line, filename) = if buffer.starts_with(get) {
@@ -198,4 +259,11 @@ pub fn process_sse(stream: &mut TcpStream, receiver: Receiver<Message>) -> Resul
             }
         }
     }
+}
+
+pub fn decode_chat_mess(row: &str) -> SerdeResult<ChatMess> {
+    let json = row.trim_end_matches("\u{0}");
+
+    let m: ChatMess = serde_json::from_str(json)?;
+    Ok(m)
 }
