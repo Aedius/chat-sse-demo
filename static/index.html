@@ -15,6 +15,11 @@
     <input id="js-mess-submit" name="submit" type="submit"/>
 </fieldset>
 <p>Last ping : <span id="js-ping">never</span></p>
+<fieldset>
+    <ul id="js-chat-log">
+
+    </ul>
+</fieldset>
 
 <script type="text/javascript">
 window.onload = function () {
@@ -22,6 +27,7 @@ window.onload = function () {
     const submitElement = document.querySelector('#js-mess-submit');
     const nicknameElement = document.querySelector('#js-mess-nickname');
     const messageElement = document.querySelector('#js-mess-content');
+    var chatLog = document.querySelector('#js-chat-log');
 
     var evtSource = new EventSource("http://localhost:8080/sse");
 
@@ -30,7 +36,11 @@ window.onload = function () {
     }, false);
 
     evtSource.addEventListener("chat", function(e) {
-        pingElement.innerHTML = e.data;
+        const row = e.data
+        const message = JSON.parse(row)
+        var li = document.createElement('li');
+        li.innerHTML = message.name + ' -> ' + message.mess
+        chatLog.appendChild(li)
     }, false);
 
     submitElement.onclick = function(){

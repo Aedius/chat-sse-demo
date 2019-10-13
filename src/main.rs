@@ -10,7 +10,6 @@ use std::time::Duration;
 use chrono;
 use serde::{Deserialize, Serialize};
 use serde_json::Result as SerdeResult;
-use snailquote::escape;
 
 #[derive(Clone)]
 pub struct Message {
@@ -63,6 +62,9 @@ impl Multiplex {
                                     }
                                 }
                             }
+
+                            // sort to remove valid index
+                            dead_channel.sort_unstable_by(|a, b| b.cmp(a));
                             for pos in dead_channel {
                                 self.sender_list.remove(pos);
                             }
@@ -188,7 +190,7 @@ fn handle_connection(mut stream: TcpStream, receiver: Receiver<Message>, sender:
 
                                 let new_mess = MMess::Message(Message {
                                     name: "chat".to_string(),
-                                    content: escape(serde_json::to_string(&m).unwrap().as_str()).to_string(),
+                                    content: serde_json::to_string(&m).unwrap(),
                                 });
 
                                 match sender.send(new_mess) {
