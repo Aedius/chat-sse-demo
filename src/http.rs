@@ -13,16 +13,9 @@ use crate::multiplexer::MMess;
 use crate::sse::Message;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ChatMess {
+struct ChatMess {
     name: String,
     mess: String,
-}
-
-pub fn decode_chat_mess(row: &str) -> SerdeResult<ChatMess> {
-    let json = row.trim_end_matches("\u{0}");
-
-    let m: ChatMess = serde_json::from_str(json)?;
-    Ok(m)
 }
 
 pub fn listen(tcp_address: &str, sender: Sender<MMess<Message>>) -> () {
@@ -119,4 +112,11 @@ fn handle_connection(mut stream: TcpStream, sender: Sender<MMess<Message>>) {
         stream.write(response.as_bytes()).unwrap();
         stream.flush().unwrap();
     }
+}
+
+fn decode_chat_mess(row: &str) -> SerdeResult<ChatMess> {
+    let json = row.trim_end_matches("\u{0}");
+
+    let m: ChatMess = serde_json::from_str(json)?;
+    Ok(m)
 }
