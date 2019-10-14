@@ -29,7 +29,7 @@ window.onload = function () {
     const messageElement = document.querySelector('#js-mess-content');
     var chatLog = document.querySelector('#js-chat-log');
 
-    var evtSource = new EventSource("http://localhost:8080/sse");
+    var evtSource = new EventSource("http://localhost:32000/sse");
 
     evtSource.addEventListener("ping", function(e) {
         pingElement.innerHTML = e.data;
