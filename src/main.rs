@@ -5,84 +5,18 @@ use std::net::TcpStream;
 use std::str;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
-use std::time::Duration;
 
-use chrono;
-use serde::{Deserialize, Serialize};
-use serde_json::Result as SerdeResult;
+use http::decode_chat_mess;
+use multiplexer::{MMess, Multiplex};
+use sse::{Message, process_sse};
 
-#[derive(Clone)]
-pub struct Message {
-    name: String,
-    content: String,
-}
+mod multiplexer;
 
-pub enum MMess {
-    Message(Message),
-    Sender(Sender<Message>),
-}
+mod heart;
 
-pub struct Multiplex {
-    receiver: Receiver<MMess>,
-    sender_list: Vec<Sender<Message>>,
-}
+mod sse;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ChatMess {
-    name: String,
-    mess: String,
-}
-
-impl Multiplex {
-    pub fn new(receiver: Receiver<MMess>) -> Multiplex {
-        Multiplex {
-            receiver,
-            sender_list: Vec::new(),
-        }
-    }
-
-    pub fn add_sender(mut self, sender: Sender<Message>) {
-        self.sender_list.push(sender)
-    }
-
-    pub fn listen(mut self) {
-        loop {
-            match self.receiver.recv() {
-                Ok(multi_message) => {
-                    match multi_message {
-                        MMess::Message(mess) => {
-                            let mut dead_channel = Vec::new();
-                            println!("new message ! Sending to {} chanel", &self.sender_list.len());
-                            for (pos, sender) in self.sender_list.iter().enumerate() {
-                                match sender.send(mess.clone()) {
-                                    Ok(()) => {}
-                                    Err(e) => {
-                                        dead_channel.push(pos);
-                                        println!("multiplex cannot send {}, removing", e);
-                                    }
-                                }
-                            }
-
-                            // sort to remove valid index
-                            dead_channel.sort_unstable_by(|a, b| b.cmp(a));
-                            for pos in dead_channel {
-                                self.sender_list.remove(pos);
-                            }
-                        }
-                        MMess::Sender(sender) => {
-                            println!("new Listener !");
-                            self.sender_list.push(sender)
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("multiplex error receiving : {}", e);
-                }
-            }
-        }
-    }
-}
-
+mod http;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
@@ -100,22 +34,7 @@ fn main() {
     let sender_clock = sender.clone();
     thread::spawn(
         move || {
-            loop {
-                let date = chrono::offset::Utc::now();
-
-                let mess = Message {
-                    name: "ping".to_string(),
-                    content: format!("{}", date),
-                };
-
-                match sender_clock.send(MMess::Message(mess)) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        println!("clock cannot send {}", e);
-                    }
-                }
-                thread::sleep(Duration::from_secs(1));
-            }
+            heart::start(sender_clock)
         }
     );
 
@@ -147,7 +66,7 @@ fn main() {
 }
 
 
-fn handle_connection(mut stream: TcpStream, receiver: Receiver<Message>, sender: Sender<MMess>) {
+fn handle_connection(mut stream: TcpStream, receiver: Receiver<Message>, sender: Sender<MMess<Message>>) {
     let mut buffer = [0; 512];
 
     stream.read(&mut buffer).unwrap();
@@ -229,43 +148,3 @@ fn handle_connection(mut stream: TcpStream, receiver: Receiver<Message>, sender:
     }
 }
 
-pub fn process_sse(stream: &mut TcpStream, receiver: Receiver<Message>) -> Result<(), std::io::Error> {
-    let headers = [
-        "HTTP/1.1 200 OK",
-        "Content-Type: text/event-stream",
-        "Connection: keep-alive",
-        "\r\n"
-    ];
-    let response = headers.join("\r\n")
-        .to_string()
-        .into_bytes();
-    stream.write(&response)?;
-
-    loop {
-        match receiver.recv() {
-            Ok(message) => {
-                let response = format!("{}{}{}", "event: ", message.name, "\r\n");
-                stream.write(response.as_bytes())?;
-                let response = format!("{}{}{}", "data:", message.content, "\r\n\r\n");
-                stream.write(response.as_bytes())?;
-                match stream.flush() {
-                    Ok(()) => {}
-                    Err(e) => {
-                        return Err(e);
-                    }
-                }
-            }
-            Err(e) => {
-                println!("error receiving : {}", e);
-                return Ok(());
-            }
-        }
-    }
-}
-
-pub fn decode_chat_mess(row: &str) -> SerdeResult<ChatMess> {
-    let json = row.trim_end_matches("\u{0}");
-
-    let m: ChatMess = serde_json::from_str(json)?;
-    Ok(m)
-}
